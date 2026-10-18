@@ -1,0 +1,24 @@
+
+# Virtual environments
+my_env/
+venv/
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Secrets
+.env
+
+# Compiled executables
+*.exe
+
+# Compressed dataset
+datasets/housing/housing.tgz
+
+
+saved_models/extra_trees.pkl
