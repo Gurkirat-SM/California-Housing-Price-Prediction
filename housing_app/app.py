@@ -157,3 +157,122 @@ if submitted:
 
     except Exception as e:
         st.error(f"Prediction failed: {e}")
+
+
+
+# -----------------------------
+# Batch prediction from CSV
+# -----------------------------
+st.divider()
+st.header("Batch Housing Price Prediction")
+
+st.write(
+    "Upload a CSV containing raw housing features to predict "
+    "median house values for multiple records."
+)
+
+uploaded_file = st.file_uploader(
+    "Choose a housing CSV file",
+    type=["csv"],
+    key="batch_csv"
+)
+
+if uploaded_file is not None:
+    try:
+        batch_data = pd.read_csv(uploaded_file)
+
+        required_columns = [
+            "longitude",
+            "latitude",
+            "housing_median_age",
+            "total_rooms",
+            "total_bedrooms",
+            "population",
+            "households",
+            "median_income",
+            "ocean_proximity"
+        ]
+
+        missing_columns = [
+            column for column in required_columns
+            if column not in batch_data.columns
+        ]
+
+        if missing_columns:
+            st.error(
+                "Missing required columns: "
+                + ", ".join(missing_columns)
+            )
+
+        elif batch_data.empty:
+            st.error("The uploaded CSV contains no records.")
+
+        else:
+            st.write(f"Records uploaded: {len(batch_data):,}")
+            st.dataframe(batch_data.head(10))
+
+            if st.button("Predict All House Values"):
+                actual_values = (
+                    batch_data["median_house_value"]
+                    if "median_house_value" in batch_data.columns
+                    else None
+                )
+
+                X_batch = batch_data[required_columns].copy()
+
+                with st.spinner("Predicting housing prices..."):
+                    prepared_batch = pipeline.transform(X_batch)
+                    predictions = model.predict(prepared_batch)
+
+                results = batch_data.copy()
+                results["predicted_median_house_value"] = predictions
+
+                st.success(
+                    f"Predictions completed for {len(results):,} records."
+                )
+
+                st.dataframe(results.head(100))
+
+                if actual_values is not None:
+                    from sklearn.metrics import (
+                        mean_absolute_error,
+                        mean_squared_error
+                    )
+
+                    if actual_values.isna().any():
+                        st.warning(
+                            "Some actual prices are missing; "
+                            "metrics are calculated only on rows "
+                            "with actual prices."
+                        )
+
+                    valid = actual_values.notna()
+
+                    if valid.any():
+                        mae = mean_absolute_error(
+                            actual_values[valid],
+                            predictions[valid]
+                        )
+
+                        rmse = np.sqrt(
+                            mean_squared_error(
+                                actual_values[valid],
+                                predictions[valid]
+                            )
+                        )
+
+                        col1, col2 = st.columns(2)
+                        col1.metric("MAE", f"${mae:,.2f}")
+                        col2.metric("RMSE", f"${rmse:,.2f}")
+
+                csv_output = results.to_csv(index=False)
+
+                st.download_button(
+                    "Download all predictions",
+                    data=csv_output,
+                    file_name="housing_predictions.csv",
+                    mime="text/csv"
+                )
+
+    except Exception as e:
+        st.error(f"Batch prediction failed: {e}")
